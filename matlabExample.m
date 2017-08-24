@@ -6,8 +6,8 @@ mainDir  = fileparts(curDir);
 
 measurements =[mainDir filesep 'Measurements' filesep 'videoMat'];
 addpath(genpath(measurements));
-% load('matFiles/Horizontal_3.mat');
-load('iphone.mat');
+load('matFiles/Horizontal_3.mat');
+% load('iphone.mat');
 
 Img = I;
 totalImg = length(Img);
