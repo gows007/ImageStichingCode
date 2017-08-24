@@ -6,16 +6,16 @@ mainDir  = fileparts(curDir);
 
 measurements =[mainDir filesep 'Measurements' filesep 'videoMat'];
 addpath(genpath(measurements));
-load('matFiles/Horizontal_3.mat');
+load('Horizontal_2.mat');
 % load('iphone.mat');
 
 Img = I;
 totalImg = length(Img);
 clear I;
 % totalImg = size(Img,1);
-numImages = 12;
+numImages = 10;
 image_distance = floor(totalImg/numImages);
-% image_distance = 100;
+% image_distance = 300;
 limit = image_distance*numImages;
 
 n=1;
@@ -24,7 +24,8 @@ for i= 1:image_distance:limit
     n = n+1;
 end
 grayImage = I{1};
-points = detectSURFFeatures(grayImage);
+points = detectSURFFeatures(grayImage,'MetricThreshold',100,'NumOctaves',4);
+% points = detectHarrisFeatures( grayImage,'MinQuality',0.001);
 [features, points] = extractFeatures(grayImage, points);
 
 % Initialize all the transforms to the identity matrix. Note that the
@@ -45,8 +46,11 @@ for n = 2:numImages
 
     % Detect and extract SURF features for I(n).
     grayImage = I{n};
-    points = detectSURFFeatures(grayImage);
+    points = detectSURFFeatures(grayImage,'MetricThreshold',100,'NumOctaves',4);
+%     points = detectHarrisFeatures( grayImage,'MinQuality',0.001);
     [features, points] = extractFeatures(grayImage, points);
+    
+    
 
     % Find correspondences between I(n) and I(n-1).
     indexPairs = matchFeatures(features, featuresPrevious, 'Unique', true);
@@ -70,10 +74,18 @@ for n = 2:numImages
 %     matchedPoints = points(indexPairs(:,1), :);
 %     matchedPointsPrev = pointsPrevious(indexPairs(:,2), :);
 
-    % Estimate the transformation between I(n) and I(n-1).
-    tforms(n) = estimateGeometricTransform(matchedPoints, matchedPointsPrev,...
-        'projective', 'Confidence', 99.9, 'MaxNumTrials', 2000);
+    %Plot image
+    figure(200+n); 
+    showMatchedFeatures(I{n},I{n-1},matchedPoints,matchedPointsPrev);
 
+
+    % Estimate the transformation between I(n) and I(n-1).
+    [tforms(n),inlierPtsDistorted,inlierPtsOriginal] = estimateGeometricTransform(matchedPoints, matchedPointsPrev,...
+        'projective', 'Confidence', 99.9, 'MaxNumTrials', 4000,'MaxDistance',1.0);
+    figure(300);
+
+    showMatchedFeatures(I{n},I{n-1},inlierPtsOriginal,inlierPtsDistorted);
+    title('Matched inlier points');
     % Compute T(1) * ... * T(n-1) * T(n)
     tforms(n).T = tforms(n-1).T * tforms(n).T;
 end
@@ -128,15 +140,15 @@ panoramaView = imref2d([height width], xLimits, yLimits);
 
 % Create the panorama.
 for i = 1:numImages
-
     
-
     % Transform I into the panorama.
     warpedImage = imwarp(I{i}, tforms(i), 'OutputView', panoramaView);
-
+    name = strcat('warpedImage_',int2str(i),'.jpg');
+    imwrite(warpedImage,name);
     % Generate a binary mask.
     mask = imwarp(true(size(I{i},1),size(I{i},2)), tforms(i), 'OutputView', panoramaView);
-
+    name = strcat('mask',int2str(i),'.jpg');
+    imwrite(mask,name);
     % Overlay the warpedImage onto the panorama.
     figure(1);
     panorama = step(blender, panorama, warpedImage, mask);
